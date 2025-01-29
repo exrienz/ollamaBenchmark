@@ -1,1 +1,1 @@
-docker run -d -p 8080:80 --restart=always --name task-prioritizer-container task-prioritizer
+docker run -d -p 8282:80 --restart=always --name ollamaBenchmark-container ollamaBenchmark
