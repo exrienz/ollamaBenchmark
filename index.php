@@ -62,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .btn-primary { background-color: #007bff; border: none; }
         .btn-primary:hover { background-color: #0056b3; }
         .alert { border-radius: 5px; }
+        .table-responsive { max-height: 400px; overflow-y: auto; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
     </style>
 </head>
 <body>
@@ -102,24 +104,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if (!empty($results)): ?>
         <div class="container mt-4">
             <h3 class="text-center">Results</h3>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Response</th>
-                        <th>Time Taken</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($results as $result): ?>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
                         <tr>
-                            <td><?= htmlspecialchars($result['model']) ?></td>
-                            <td><pre><?= htmlspecialchars($result['response']) ?></pre></td>
-                            <td><?= htmlspecialchars($result['time_taken']) ?></td>
+                            <th>Model</th>
+                            <th>Response</th>
+                            <th>Time Taken</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($results as $result): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($result['model']) ?></td>
+                                <td><pre><?= htmlspecialchars($result['response']) ?></pre></td>
+                                <td><?= htmlspecialchars($result['time_taken']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     <?php endif; ?>
 </body>
