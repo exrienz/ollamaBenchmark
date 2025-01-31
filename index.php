@@ -6,16 +6,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ai_models = array_map('trim', explode(',', $_POST['ai_models']));
     $ai_role = htmlspecialchars(trim($_POST['ai_role']), ENT_QUOTES, 'UTF-8');
     $ai_instruction = htmlspecialchars(trim($_POST['ai_instruction']), ENT_QUOTES, 'UTF-8');
-    
-    $results = [];
 
     // Validate URL format
     if (!filter_var($ollama_url, FILTER_VALIDATE_URL)) {
         $error_message = "Invalid Ollama URL.";
     } else {
-        foreach ($ai_models as $model) {
-            $start_time = microtime(true);
+        $multi_handle = curl_multi_init();
+        $handles = [];
+        $responses = [];
 
+        foreach ($ai_models as $model) {
             $data = [
                 'model' => $model,
                 'role' => $ai_role,
@@ -33,18 +33,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_HEADER, false);
 
-            $response = curl_exec($ch);
-            $end_time = microtime(true);
+            // Store the handle
+            curl_multi_add_handle($multi_handle, $ch);
+            $handles[$model] = $ch;
+        }
 
-            $results[] = [
+        // Execute all requests asynchronously
+        do {
+            $status = curl_multi_exec($multi_handle, $active);
+        } while ($status === CURLM_CALL_MULTI_PERFORM);
+
+        while ($active && $status === CURLM_OK) {
+            if (curl_multi_select($multi_handle) !== -1) {
+                do {
+                    $status = curl_multi_exec($multi_handle, $active);
+                } while ($status === CURLM_CALL_MULTI_PERFORM);
+            }
+        }
+
+        // Fetch responses
+        foreach ($handles as $model => $ch) {
+            $response = curl_multi_getcontent($ch);
+            $decoded_response = json_decode($response, true);
+            $output_text = $decoded_response['response'] ?? 'No response received';
+
+            $responses[] = [
                 'model' => $model,
-                'response' => $response,
-                'time_taken' => round(($end_time - $start_time) * 1000, 2) . ' ms'
+                'response' => $output_text
             ];
 
+            curl_multi_remove_handle($multi_handle, $ch);
             curl_close($ch);
         }
+
+        curl_multi_close($multi_handle);
     }
 }
 ?>
@@ -101,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
     
-    <?php if (!empty($results)): ?>
+    <?php if (!empty($responses)): ?>
         <div class="container mt-4">
             <h3 class="text-center">Results</h3>
             <div class="table-responsive">
@@ -110,15 +134,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <tr>
                             <th>Model</th>
                             <th>Response</th>
-                            <th>Time Taken</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($results as $result): ?>
+                        <?php foreach ($responses as $result): ?>
                             <tr>
                                 <td><?= htmlspecialchars($result['model']) ?></td>
                                 <td><pre><?= htmlspecialchars($result['response']) ?></pre></td>
-                                <td><?= htmlspecialchars($result['time_taken']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
