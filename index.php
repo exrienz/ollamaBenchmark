@@ -1,6 +1,4 @@
 <?php
-set_time_limit(300); // Set max execution time to 5 minutes
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Sanitize and validate inputs
     $ollama_url = filter_var(trim($_POST['ollama_url']), FILTER_SANITIZE_URL);
@@ -36,14 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_HEADER, false);
+            
+            // Increase timeout settings
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30); // Max execution time
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // Connection timeout
 
-            // Store the handle with start time
-            $handles[$model] = [
-                'ch' => $ch,
-                'start_time' => microtime(true) // Start time for execution
-            ];
+            // Store start time
+            $start_time = microtime(true);
+            curl_setopt($ch, CURLOPT_PRIVATE, $start_time);
 
+            // Store the handle
             curl_multi_add_handle($multi_handle, $ch);
+            $handles[$model] = $ch;
         }
 
         // Execute all requests asynchronously
@@ -52,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } while ($status === CURLM_CALL_MULTI_PERFORM);
 
         while ($active && $status === CURLM_OK) {
-            if (curl_multi_select($multi_handle) !== -1) {
+            if (curl_multi_select($multi_handle, 5) !== -1) { // Use select with a timeout
                 do {
                     $status = curl_multi_exec($multi_handle, $active);
                 } while ($status === CURLM_CALL_MULTI_PERFORM);
@@ -60,20 +62,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Fetch responses
-        foreach ($handles as $model => $handleData) {
-            $ch = $handleData['ch'];
+        foreach ($handles as $model => $ch) {
             $response = curl_multi_getcontent($ch);
             $decoded_response = json_decode($response, true);
             $output_text = $decoded_response['response'] ?? 'No response received';
 
             // Calculate response time
-            $end_time = microtime(true);
-            $execution_time = round($end_time - $handleData['start_time'], 2); // In seconds
+            $start_time = curl_getinfo($ch, CURLINFO_PRIVATE);
+            $response_time = round(microtime(true) - $start_time, 2);
 
             $responses[] = [
                 'model' => $model,
                 'response' => $output_text,
-                'time_taken' => $execution_time
+                'time_taken' => $response_time . 's'
             ];
 
             curl_multi_remove_handle($multi_handle, $ch);
@@ -146,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <tr>
                             <th>Model</th>
                             <th>Response</th>
-                            <th>Time Taken (s)</th>
+                            <th>Time Taken</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -154,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <tr>
                                 <td><?= htmlspecialchars($result['model']) ?></td>
                                 <td><pre><?= htmlspecialchars($result['response']) ?></pre></td>
-                                <td><?= htmlspecialchars($result['time_taken']) ?> s</td>
+                                <td><?= htmlspecialchars($result['time_taken']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
