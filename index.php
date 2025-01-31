@@ -1,5 +1,5 @@
 <?php
-error_reporting(E_ALL & ~E_WARNING);
+error_reporting(E_ALL & ~E_DEPRECATED);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Previous sanitization code remains the same
     $ollama_url = filter_var(rtrim(trim($_POST['ollama_url']), '/'), FILTER_SANITIZE_URL);
