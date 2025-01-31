@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class='mb-2'><strong>Model:</strong> " . htmlspecialchars($model) . "</div>
                             <div class='mb-2'><strong>Prompt:</strong><pre class='mt-2'>" . 
                                 htmlspecialchars($ai_instruction) . "</pre></div>
-                            <div class='mb-2 ${status_class}'><strong>Status:</strong> " . 
+                            <div class='mb-2 {$status_class}'><strong>Status:</strong> " . 
                                 ($curl_errno || $http_code >= 400 ? 'Failed' : 'Success') . "</div>
                             <div class='mb-2'><strong>Response Time:</strong> {$response_time}s</div>
                             <div><strong>Response:</strong><pre class='mt-2'>" . 
