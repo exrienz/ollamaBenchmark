@@ -12,10 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("<div class='alert alert-danger'>Invalid Ollama URL.</div>");
     }
 
-    // Enable output buffering if not already active
+    // Start output buffering
     if (ob_get_level() == 0) ob_start();
 
-    // Start HTML output
+    // HTML Output (UI)
     echo "<!DOCTYPE html>
     <html lang='en'>
     <head>
@@ -40,11 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
     <script>
-        function appendResult(model, response, timeTaken) {
+        function appendResult(model, response, timeTaken, error = false) {
             let resultDiv = document.getElementById('results');
             let newResult = document.createElement('div');
             newResult.classList.add('result-box');
-            newResult.innerHTML = '<strong>Model:</strong> ' + model + '<br><strong>Response:</strong> <pre>' + response + '</pre><br><strong>Time Taken:</strong> ' + timeTaken + 's';
+            newResult.style.borderLeft = error ? '4px solid red' : '4px solid green';
+            newResult.innerHTML = '<strong>Model:</strong> ' + model + 
+                                  '<br><strong>Response:</strong> <pre>' + response + '</pre>' + 
+                                  '<br><strong>Time Taken:</strong> ' + timeTaken + 's';
             resultDiv.appendChild(newResult);
         }
     </script>";
@@ -68,21 +71,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
+        // **🚀 Performance Boost**
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);  // ⏳ Increase timeout
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);  // 🚀 Faster connect
+        curl_setopt($ch, CURLOPT_TCP_KEEPALIVE, 1);  // 🔄 Keep connection alive
+        curl_setopt($ch, CURLOPT_TCP_KEEPIDLE, 10);
+        curl_setopt($ch, CURLOPT_TCP_KEEPINTVL, 5);
 
         $start_time = microtime(true);
         $response = curl_exec($ch);
         $response_time = round(microtime(true) - $start_time, 2);
+        $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
         curl_close($ch);
 
-        $decoded_response = json_decode($response, true);
-        $output_text = $decoded_response['response'] ?? 'No response received';
+        // **📌 Handle Errors Gracefully**
+        if ($http_status != 200 || empty($response)) {
+            $output_text = "⚠️ Request failed: " . ($curl_error ?: "Server error (Code: $http_status)");
+            echo "<script>appendResult(" . json_encode($model) . ", " . json_encode($output_text) . ", " . json_encode($response_time) . ", true);</script>";
+        } else {
+            $decoded_response = json_decode($response, true);
+            $output_text = $decoded_response['response'] ?? 'No response received';
+            echo "<script>appendResult(" . json_encode($model) . ", " . json_encode($output_text) . ", " . json_encode($response_time) . ");</script>";
+        }
 
-        echo "<script>appendResult(" . json_encode($model) . ", " . json_encode($output_text) . ", " . json_encode($response_time) . ");</script>";
         ob_flush();
         flush();
-        usleep(500000); // Slight delay to prevent overloading the server
+        usleep(300000); // **⌛ Reduce stress (300ms delay)**
     }
 
     echo "</body></html>";
@@ -90,4 +106,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 ?>
-
