@@ -1,4 +1,6 @@
 <?php
+set_time_limit(300); // Set max execution time to 5 minutes
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Sanitize and validate inputs
     $ollama_url = filter_var(trim($_POST['ollama_url']), FILTER_SANITIZE_URL);
@@ -35,9 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_HEADER, false);
 
-            // Store the handle
+            // Store the handle with start time
+            $handles[$model] = [
+                'ch' => $ch,
+                'start_time' => microtime(true) // Start time for execution
+            ];
+
             curl_multi_add_handle($multi_handle, $ch);
-            $handles[$model] = $ch;
         }
 
         // Execute all requests asynchronously
@@ -54,14 +60,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Fetch responses
-        foreach ($handles as $model => $ch) {
+        foreach ($handles as $model => $handleData) {
+            $ch = $handleData['ch'];
             $response = curl_multi_getcontent($ch);
             $decoded_response = json_decode($response, true);
             $output_text = $decoded_response['response'] ?? 'No response received';
 
+            // Calculate response time
+            $end_time = microtime(true);
+            $execution_time = round($end_time - $handleData['start_time'], 2); // In seconds
+
             $responses[] = [
                 'model' => $model,
-                'response' => $output_text
+                'response' => $output_text,
+                'time_taken' => $execution_time
             ];
 
             curl_multi_remove_handle($multi_handle, $ch);
@@ -134,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <tr>
                             <th>Model</th>
                             <th>Response</th>
+                            <th>Time Taken (s)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -141,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <tr>
                                 <td><?= htmlspecialchars($result['model']) ?></td>
                                 <td><pre><?= htmlspecialchars($result['response']) ?></pre></td>
+                                <td><?= htmlspecialchars($result['time_taken']) ?> s</td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
