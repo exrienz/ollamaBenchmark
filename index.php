@@ -51,8 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_HEADER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 300); // Maximum execution time per request
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 75); // Connection timeout
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60); // Maximum execution time per request
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15); // Connection timeout
 
             $response = curl_exec($ch);
             $error = curl_error($ch);
