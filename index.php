@@ -1,3 +1,8 @@
+make a professional very beautiful bootstrap html template
+
+for this
+
+
 <?php
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ollama_url = trim($_POST['ollama_url']);
@@ -5,37 +10,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ai_models = array_map('trim', explode(',', $_POST['ai_models']));
     $ai_role = trim($_POST['ai_role']);
     $ai_instruction = trim($_POST['ai_instruction']);
-    
+
     $results = [];
-    
+
     foreach ($ai_models as $model) {
         $start_time = microtime(true);
-        
+
         $data = [
+            'model' => $model,
             'role' => $ai_role,
-            'instruction' => $ai_instruction
+            'prompt' => $ai_instruction,
+            'stream' => false
         ];
-        
+
         $headers = ["Content-Type: application/json"];
         if (!empty($auth_key)) {
             $headers[] = "Authorization: Bearer $auth_key";
         }
-        
-        $ch = curl_init("$ollama_url/$model");
+
+        $ch = curl_init("$ollama_url/api/generate");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        
+
         $response = curl_exec($ch);
         $end_time = microtime(true);
-        
+
         $results[] = [
             'model' => $model,
             'response' => $response,
             'time_taken' => round(($end_time - $start_time) * 1000, 2) . ' ms'
         ];
-        
+
         curl_close($ch);
     }
 }
