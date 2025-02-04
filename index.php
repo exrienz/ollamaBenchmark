@@ -1,18 +1,22 @@
 <?php
 ini_set('error_reporting', E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', 0);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Previous sanitization code remains the same
-    $ollama_url = filter_var(rtrim(trim($_POST['ollama_url']), '/'), FILTER_SANITIZE_URL);
-    $auth_key = trim($_POST['auth_key']);
-    $ai_models = array_filter(array_map('trim', explode(',', $_POST['ai_models'])));
-    $ai_role = htmlspecialchars(trim($_POST['ai_role']), ENT_QUOTES, 'UTF-8');
+    // Ensure the script does not get timed out by PHP itself
+    set_time_limit(0);
+    
+    // Sanitize and extract POST parameters
+    $ollama_url     = filter_var(rtrim(trim($_POST['ollama_url']), '/'), FILTER_SANITIZE_URL);
+    $auth_key       = trim($_POST['auth_key']);
+    $ai_models      = array_filter(array_map('trim', explode(',', $_POST['ai_models'])));
+    $ai_role        = htmlspecialchars(trim($_POST['ai_role']), ENT_QUOTES, 'UTF-8');
     $ai_instruction = htmlspecialchars(trim($_POST['ai_instruction']), ENT_QUOTES, 'UTF-8');
 
     if (!filter_var($ollama_url, FILTER_VALIDATE_URL)) {
         $error_message = "Invalid Ollama URL.";
     } else {
-        // Output buffering and HTML header code remains the same
+        // Start output buffering and output the initial HTML header for benchmark results
         ob_start();
         echo "<html><head><title>Ollama AI Benchmark</title>";
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
@@ -32,13 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ob_flush();
         flush();
 
+        // Process each AI model
         foreach ($ai_models as $model) {
             $start_time = microtime(true);
-            
             try {
-                // Use the /api/generate endpoint instead of /api/chat
+                // Prepare data for the /api/generate endpoint
                 $data = [
-                    'model' => $model,
+                    'model'  => $model,
                     'prompt' => $ai_instruction,
                     'stream' => false
                 ];
@@ -47,37 +51,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "Content-Type: application/json",
                     "Accept: application/json"
                 ];
-                
                 if (!empty($auth_key)) {
                     $headers[] = "Authorization: Bearer $auth_key";
                 }
 
-                // Initialize cURL
+                // Initialize cURL for the API call
                 $ch = curl_init("$ollama_url/api/generate");
                 curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_POST => true,
-                    CURLOPT_POSTFIELDS => json_encode($data),
-                    CURLOPT_HTTPHEADER => $headers,
-                    CURLOPT_HEADER => false,
-                    CURLOPT_TIMEOUT => 360,
-                    CURLOPT_CONNECTTIMEOUT => 90,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_ENCODING => '',
-                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
+                    CURLOPT_RETURNTRANSFER    => true,
+                    CURLOPT_POST              => true,
+                    CURLOPT_POSTFIELDS        => json_encode($data),
+                    CURLOPT_HTTPHEADER        => $headers,
+                    CURLOPT_HEADER            => false,
+                    CURLOPT_TIMEOUT           => 360,   // Seconds to allow the request to take
+                    CURLOPT_CONNECTTIMEOUT    => 90,    // Seconds to wait while trying to connect
+                    CURLOPT_SSL_VERIFYPEER    => false,
+                    CURLOPT_SSL_VERIFYHOST    => false,
+                    CURLOPT_ENCODING          => '',
+                    CURLOPT_HTTP_VERSION      => CURL_HTTP_VERSION_1_1
                 ]);
 
-                $response = curl_exec($ch);
-                $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $curl_error = curl_error($ch);
-                $curl_errno = curl_errno($ch);
+                $response    = curl_exec($ch);
+                $http_code   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curl_error  = curl_error($ch);
+                $curl_errno  = curl_errno($ch);
                 curl_close($ch);
 
                 // Calculate response time
                 $response_time = round(microtime(true) - $start_time, 2);
 
-                // Handle response
+                // Determine if the call was successful or encountered an error
                 if ($curl_errno || $http_code >= 400) {
                     $status_class = 'error-text';
                     $output_text = "Error: " . ($curl_error ?: "HTTP Status $http_code");
@@ -86,42 +89,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $decoded_response = json_decode($response, true);
-                    // Directly access the 'response' field for /api/generate endpoint
                     $output_text = $decoded_response['response'] ?? 'No response content';
                     $status_class = 'success-text';
                 }
 
-                // Output the result
+                // Output the result for the current model using JavaScript to append a card element
                 echo "<script>
                         var resultContainer = document.getElementById('results');
                         var newCard = document.createElement('div');
                         newCard.classList.add('response-card');
                         newCard.innerHTML = `
                             <div class='mb-2'><strong>Model:</strong> " . htmlspecialchars($model) . "</div>
-                            <div class='mb-2'><strong>Prompt:</strong><pre class='mt-2'>" . 
-                                htmlspecialchars($ai_instruction) . "</pre></div>
-                            <div class='mb-2 {$status_class}'><strong>Status:</strong> " . 
-                                ($curl_errno || $http_code >= 400 ? 'Failed' : 'Success') . "</div>
+                            <div class='mb-2'><strong>Prompt:</strong><pre class='mt-2'>" . htmlspecialchars($ai_instruction) . "</pre></div>
+                            <div class='mb-2 {$status_class}'><strong>Status:</strong> " . ($curl_errno || $http_code >= 400 ? 'Failed' : 'Success') . "</div>
                             <div class='mb-2'><strong>Response Time:</strong> {$response_time}s</div>
-                            <div><strong>Response:</strong><pre class='mt-2'>" . 
-                                htmlspecialchars($output_text) . "</pre></div>
+                            <div><strong>Response:</strong><pre class='mt-2'>" . htmlspecialchars($output_text) . "</pre></div>
                         `;
                         resultContainer.appendChild(newCard);
                       </script>";
                 ob_flush();
                 flush();
-                
-                // Add a small delay between requests
-                usleep(500000); // 0.5 second delay
 
+                // Add a small delay between requests (0.5 second)
+                usleep(500000);
             } catch (Exception $e) {
                 echo "<script>
                         var resultContainer = document.getElementById('results');
                         var newCard = document.createElement('div');
                         newCard.classList.add('response-card');
-                        newCard.innerHTML = '<div class=\"error-text\"><strong>Error processing " . 
-                            htmlspecialchars($model) . ":</strong> " . 
-                            htmlspecialchars($e->getMessage()) . "</div>';
+                        newCard.innerHTML = '<div class=\"error-text\"><strong>Error processing " . htmlspecialchars($model) . ":</strong> " . htmlspecialchars($e->getMessage()) . "</div>';
                         resultContainer.appendChild(newCard);
                       </script>";
                 ob_flush();
@@ -129,12 +125,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Finish the HTML output
         echo "</body></html>";
+        ob_flush();
+        flush();
+        
+        // IMPORTANT: Terminate the script so the additional HTML form (below) is not output.
+        exit;
     }
 }
 ?>
+
 <!DOCTYPE html>
-<!-- The HTML form part remains exactly the same as before -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
