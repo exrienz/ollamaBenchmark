@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flush();
         
         // IMPORTANT: Terminate the script so the additional HTML form (below) is not output.
-        exit;
+        //exit;
     }
 }
 ?>
