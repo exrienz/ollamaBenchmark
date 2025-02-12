@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = [
                     'model'  => $model,
                     'prompt' => $ai_instruction,
-                    'stream' => true
+                    'stream' => false
                 ];
 
                 $headers = [
