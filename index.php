@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = [
                     'model'  => $model,
                     'prompt' => $ai_instruction,
-                    'stream' => false
+                    'stream' => true
                 ];
 
                 $headers = [
@@ -103,7 +103,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class='mb-2'><strong>Prompt:</strong><pre class='mt-2'>" . htmlspecialchars($ai_instruction) . "</pre></div>
                             <div class='mb-2 {$status_class}'><strong>Status:</strong> " . ($curl_errno || $http_code >= 400 ? 'Failed' : 'Success') . "</div>
                             <div class='mb-2'><strong>Response Time:</strong> {$response_time}s</div>
-                            <div><strong>Response:</strong><pre class='mt-2'>" . htmlspecialchars($output_text) . "</pre></div>
+                            <div><strong>Response:</strong><pre style='
+						white-space: pre-wrap; /* Makes the text wrap inside the block */
+						word-wrap: break-word; /* Breaks long words to fit inside the block */
+						overflow-wrap: break-word; /* Modern equivalent for word-wrap */
+						width: 100%; /* Adjust the width as needed */
+						border: 0px solid #ccc; /* Optional: adds a border to visualize the block */
+						padding: 10px; /* Optional: adds padding inside the block */'
+						class='mt-2'>" . htmlspecialchars($output_text) . "</pre></div>
                         `;
                         resultContainer.appendChild(newCard);
                       </script>";
