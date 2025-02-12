@@ -63,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     CURLOPT_POSTFIELDS        => json_encode($data),
                     CURLOPT_HTTPHEADER        => $headers,
                     CURLOPT_HEADER            => false,
-                    CURLOPT_TIMEOUT           => 360,   // Seconds to allow the request to take
-                    CURLOPT_CONNECTTIMEOUT    => 90,    // Seconds to wait while trying to connect
+                    CURLOPT_TIMEOUT           => 400,   // Seconds to allow the request to take
+                    CURLOPT_CONNECTTIMEOUT    => 140,    // Seconds to wait while trying to connect
                     CURLOPT_SSL_VERIFYPEER    => false,
                     CURLOPT_SSL_VERIFYHOST    => false,
                     CURLOPT_ENCODING          => '',
